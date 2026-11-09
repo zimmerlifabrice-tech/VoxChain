@@ -56,7 +56,7 @@ build.bat
 Oder manuell:
 
 ```
-cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake -B build -A x64
 cmake --build build --config Release --target VoxChain_VST3 VoxChainTests
 ```
 
