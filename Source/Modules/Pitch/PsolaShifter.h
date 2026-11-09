@@ -44,7 +44,7 @@ public:
     int getLatency() const noexcept { return latency; }
 
 private:
-    struct TrackPoint { int64_t pos = 0; double period = 0.0; bool voiced = false; double ratio = 1.0; };
+    struct TrackPoint { int64_t pos = 0; double period = 0.0; bool voiced = false; double ratio = 1.0; double outPeriod = 0.0; };
     struct Mark       { int64_t pos = 0; double period = 0.0; bool voiced = false; };
 
     TrackPoint lookupTrack (int64_t pos) const noexcept;

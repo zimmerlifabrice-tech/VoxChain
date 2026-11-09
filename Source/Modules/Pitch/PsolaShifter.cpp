@@ -55,6 +55,10 @@ void PsolaShifter::pushTrackPoint (int64_t centerPos, double periodSamples, bool
     tp.period = std::clamp (periodSamples, 2.0, (double) maxPeriod);
     tp.voiced = voiced;
     tp.ratio = std::clamp (ratio, 0.5, 2.0);
+    // Target output period, computed from the SAME analysis frame as the ratio.
+    // Spacing output grains by this (instead of markPeriod / ratio) makes hard
+    // tuning perfectly flat even when the input pitch moves (vibrato, scoops).
+    tp.outPeriod = tp.period / tp.ratio;
     track[(size_t) (trackCount % numTrack)] = tp;
     ++trackCount;
 }
@@ -62,7 +66,7 @@ void PsolaShifter::pushTrackPoint (int64_t centerPos, double periodSamples, bool
 PsolaShifter::TrackPoint PsolaShifter::lookupTrack (int64_t pos) const noexcept
 {
     if (trackCount == 0)
-        return { pos, unvoicedPeriod, false, 1.0 };
+        return { pos, unvoicedPeriod, false, 1.0, unvoicedPeriod };
 
     const int64_t oldest = std::max<int64_t> (0, trackCount - numTrack);
     int64_t best = trackCount - 1;
@@ -194,8 +198,8 @@ float PsolaShifter::processSample (float x)
 
         Mark m = marks[(size_t) (mi % numMarks)];
         const auto tp = lookupTrack ((int64_t) nextSynth);
-        const double ratio = (m.voiced && tp.voiced) ? tp.ratio : 1.0;
-        const double tOut = m.period / ratio;
+        const bool tuned = m.voiced && tp.voiced;
+        const double tOut = tuned ? std::clamp (tp.outPeriod, m.period * 0.5, m.period * 2.0) : m.period;
 
         // Grain length: at least two input periods, and long enough that grains
         // always overlap (no gaps when pitching down or shifting formants up).

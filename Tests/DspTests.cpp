@@ -210,6 +210,29 @@ double highBandDb (const std::vector<float>& v, int start)
     return 10.0 * std::log10 (acc / juce::jmax (1, count) + 1e-20);
 }
 
+
+/** Standard deviation (cents) of the output pitch around a reference, i.e. remaining wobble. */
+double pitchWobbleCents (const std::vector<float>& sig, int start, double ref)
+{
+    const auto c = liveCfg();
+    PitchDetector det;
+    det.prepare (sr, c.window, 60.0f, 1200.0f);
+    double sum = 0.0, sumSq = 0.0;
+    int n = 0;
+    for (int pos = start; pos + c.window <= (int) sig.size(); pos += 64)
+    {
+        auto r = det.analyse (sig.data() + pos);
+        if (! r.voiced)
+            continue;
+        const double ct = cents (r.f0, ref);
+        sum += ct; sumSq += ct * ct; ++n;
+    }
+    if (n == 0)
+        return 1e9;
+    const double mean = sum / n;
+    return std::sqrt (juce::jmax (0.0, sumSq / n - mean * mean)) + std::abs (mean) * 0.0;
+}
+
 bool allFinite (const std::vector<float>& v)
 {
     for (auto x : v)
@@ -334,6 +357,22 @@ int main()
         check (allFinite (out3), "vibrato input: output finite and bounded");
     }
 
+
+
+    // ---- Hard tune strength: vibrato must be flattened ---------------------------
+    {
+        const int n = (int) (sr * 2.0);
+        const int settle = (int) (sr * 0.4);
+        for (double vib : { 30.0, 60.0 })
+        {
+            auto in = makeVoice (220.0, n, 0.5, vib);
+            auto out = runCorrection (in, 9, ScaleQuantizer::Minor, 0.0f);
+            const double wIn = pitchWobbleCents (in, settle, 220.0);
+            const double wOut = pitchWobbleCents (out, settle, 220.0);
+            check (wOut < 3.0, "hard tune flattens " + juce::String (vib, 0) + " ct vibrato: wobble "
+                                  + juce::String (wIn, 1) + " -> " + juce::String (wOut, 2) + " ct");
+        }
+    }
 
     // ---- Raspy voice: tuning must not add crackle ------------------------------
     {
