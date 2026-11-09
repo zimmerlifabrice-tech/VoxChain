@@ -24,6 +24,7 @@ public:
     struct Result
     {
         float f0 = 0.0f;           // Hz, 0 if unvoiced
+        float candidateF0 = 0.0f;  // best pitch candidate even when judged unvoiced (0 = none)
         float voicedProb = 0.0f;   // 0..1
         float rms = 0.0f;
         float zeroCrossRate = 0.0f;

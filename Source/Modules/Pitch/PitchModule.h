@@ -4,6 +4,7 @@
 #include "PitchDetector.h"
 #include "ScaleQuantizer.h"
 #include "PsolaShifter.h"
+#include "VoicingTracker.h"
 
 namespace vox
 {
@@ -60,6 +61,7 @@ private:
     PitchDetector detector;
     ScaleQuantizer quantizer;
     PsolaShifter shifter;
+    VoicingTracker voicing;
 
     Quality quality = Quality::Live;
     double sampleRate = 44100.0;

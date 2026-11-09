@@ -159,6 +159,7 @@ PitchDetector::Result PitchDetector::analyse (const float* x)
     }
 
     r.f0 = (float) (sampleRate / tauRefined);
+    r.candidateF0 = r.f0;
     r.voiced = r.voicedProb >= voicingThreshold && r.zeroCrossRate <= maxZeroCrossRate;
     if (! r.voiced)
         r.f0 = 0.0f;

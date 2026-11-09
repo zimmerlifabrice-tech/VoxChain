@@ -54,6 +54,7 @@ void PitchModule::prepare (double sr, int /*maxBlockSize*/, int channels)
 
     detector.prepare (sr, cfg.window, cfg.minF0, cfg.maxF0);
     shifter.prepare (sr, cfg.maxPeriod, cfg.latency);
+    voicing.prepare ((double) cfg.hop / sr);
 
     detectRing.assign ((size_t) cfg.window, 0.0f);
     frame.assign ((size_t) cfg.window, 0.0f);
@@ -78,6 +79,7 @@ void PitchModule::setQuality (Quality q)
 void PitchModule::reset()
 {
     shifter.reset();
+    voicing.reset();
     quantizer.resetHysteresis();
     std::fill (detectRing.begin(), detectRing.end(), 0.0f);
     dryDelay.clear();
@@ -107,14 +109,17 @@ void PitchModule::analyseHop()
     const float hopSec = (float) cfg.hop / (float) sampleRate;
     const float alpha = retuneMs < 0.5f ? 1.0f : 1.0f - std::exp (-hopSec / (retuneMs * 0.001f));
 
-    if (res.voiced)
+    // Keep notes "voiced" through short dropouts caused by a raspy/rough voice.
+    const auto v = voicing.update (res, detector.levelGateRms, detector.maxZeroCrossRate);
+
+    if (v.voiced)
     {
         unvoicedHops = 0;
 
         // Median of the last 3 estimates removes single-frame octave glitches.
-        medianHist[medianCount % 3] = res.f0;
+        medianHist[medianCount % 3] = v.f0;
         ++medianCount;
-        float f0 = res.f0;
+        float f0 = v.f0;
         if (medianCount >= 3)
         {
             float a = medianHist[0], b = medianHist[1], c = medianHist[2];

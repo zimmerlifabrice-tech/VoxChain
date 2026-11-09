@@ -5,6 +5,7 @@
 #include "Modules/Pitch/PitchDetector.h"
 #include "Modules/Pitch/ScaleQuantizer.h"
 #include "Modules/Pitch/PsolaShifter.h"
+#include "Modules/Pitch/VoicingTracker.h"
 
 #include <algorithm>
 #include <cmath>
@@ -81,7 +82,8 @@ double measurePitch (const std::vector<float>& sig, int start)
 
 /** Same processing as PitchModule, without the plugin framework. */
 std::vector<float> runCorrection (const std::vector<float>& in, int key, int scale,
-                                  float retuneMs, double formantSemis = 0.0, double forcedShift = 1000.0)
+                                  float retuneMs, double formantSemis = 0.0, double forcedShift = 1000.0,
+                                  bool useTracker = true)
 {
     const auto c = liveCfg();
     PitchDetector det;
@@ -90,6 +92,8 @@ std::vector<float> runCorrection (const std::vector<float>& in, int key, int sca
     q.setScale (key, scale);
     PsolaShifter sh;
     sh.prepare (sr, c.maxPeriod, c.latency);
+    VoicingTracker vt;
+    vt.prepare ((double) c.hop / sr);
     sh.setFormantRatio (std::pow (2.0, formantSemis / 12.0));
 
     std::vector<float> ring ((size_t) c.window, 0.0f), frame ((size_t) c.window);
@@ -109,6 +113,10 @@ std::vector<float> runCorrection (const std::vector<float>& in, int key, int sca
             for (int k = 0; k < c.window; ++k)
                 frame[(size_t) k] = ring[(size_t) ((w + k) % c.window)];
             auto r = det.analyse (frame.data());
+            const auto v = useTracker ? vt.update (r, det.levelGateRms, det.maxZeroCrossRate)
+                                      : VoicingTracker::Output { r.voiced, r.f0 };
+            r.voiced = v.voiced;
+            r.f0 = v.f0;
             const float hopSec = (float) c.hop / (float) sr;
             const float a = retuneMs < 0.5f ? 1.0f : 1.0f - std::exp (-hopSec / (retuneMs * 0.001f));
             if (r.voiced)
@@ -160,6 +168,46 @@ double harmonicPurity (const std::vector<float>& sig, int start, double f0)
             harm += e;
     }
     return total > 0.0 ? harm / total : 0.0;
+}
+
+
+/** Raspy voice: period jitter, amplitude shimmer and breath noise. */
+std::vector<float> makeRoughVoice (double f0, int n, double jitter, double noiseAmp, int seed = 7)
+{
+    juce::Random rnd (seed);
+    std::vector<float> v ((size_t) n);
+    double phase = 0.0, inc = f0, amp = 1.0;
+    for (int i = 0; i < n; ++i)
+    {
+        const double prev = phase;
+        phase += 2.0 * pi * inc / sr;
+        if ((long long) (phase / (2.0 * pi)) > (long long) (prev / (2.0 * pi)))
+        {
+            inc = f0 * (1.0 + jitter * (rnd.nextDouble() * 2.0 - 1.0));   // new period length
+            amp = 1.0 + 0.4 * jitter * 5.0 * (rnd.nextDouble() * 2.0 - 1.0); // shimmer
+        }
+        double s = 0.0;
+        for (int h = 1; h <= 12 && h * f0 < sr * 0.45; ++h)
+            s += std::sin (h * phase) / h;
+        v[(size_t) i] = (float) (0.3 * amp * s + noiseAmp * (rnd.nextDouble() * 2.0 - 1.0));
+    }
+    return v;
+}
+
+/** Energy above 6 kHz (crackle indicator), in dB. */
+double highBandDb (const std::vector<float>& v, int start)
+{
+    double acc = 0.0, y = 0.0, prevX = 0.0;
+    const double a = std::exp (-2.0 * pi * 6000.0 / sr);
+    int count = 0;
+    for (size_t i = (size_t) start; i < v.size(); ++i)
+    {
+        y = a * (y + v[i] - prevX); // 1-pole high-pass
+        prevX = v[i];
+        acc += y * y;
+        ++count;
+    }
+    return 10.0 * std::log10 (acc / juce::jmax (1, count) + 1e-20);
 }
 
 bool allFinite (const std::vector<float>& v)
@@ -284,6 +332,22 @@ int main()
         auto in3 = makeVoice (220.0, n, 0.5, 40.0);
         auto out3 = runCorrection (in3, 9, ScaleQuantizer::Minor, 0.0f);
         check (allFinite (out3), "vibrato input: output finite and bounded");
+    }
+
+
+    // ---- Raspy voice: tuning must not add crackle ------------------------------
+    {
+        const int n = (int) (sr * 2.0);
+        const int settle = (int) (sr * 0.3);
+        auto rough = makeRoughVoice (196.0, n, 0.05, 0.03);
+        const double inHf = highBandDb (rough, settle);
+        auto withoutTracker = runCorrection (rough, 9, ScaleQuantizer::Minor, 0.0f, 0.0, 1000.0, false);
+        auto withTracker    = runCorrection (rough, 9, ScaleQuantizer::Minor, 0.0f, 0.0, 1000.0, true);
+        const double hfOld = highBandDb (withoutTracker, settle) - inHf;
+        const double hfNew = highBandDb (withTracker, settle) - inHf;
+        std::printf ("       raspy voice, added high-band energy: old %.2f dB, new %.2f dB\n", hfOld, hfNew);
+        check (hfNew < 1.5, "raspy voice: tuning adds less than 1.5 dB crackle (" + juce::String (hfNew, 2) + " dB)");
+        check (allFinite (withTracker), "raspy voice: output finite");
     }
 
     std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL TESTS PASSED" : "TESTS FAILED",
