@@ -11,7 +11,7 @@ namespace vox
     A rough, raspy or breathy voice makes single analysis frames look
     "unvoiced" for a few milliseconds. Switching the pitch shifter on and off
     that fast creates crackle that makes the rasp sound worse. This tracker
-    keeps a note "voiced" through short dropouts (up to ~100 ms) as long as
+    keeps a note "voiced" through short dropouts (up to ~45 ms) as long as
     the level is there and it is not a sibilant (S/F/T), holding the last
     pitch or following a plausible pitch candidate.
 */
@@ -20,7 +20,7 @@ class VoicingTracker
 public:
     struct Output { bool voiced = false; float f0 = 0.0f; };
 
-    void prepare (double hopSeconds, double maxHoldSeconds = 0.10)
+    void prepare (double hopSeconds, double maxHoldSeconds = 0.045)
     {
         maxHoldHops = (int) std::lround (maxHoldSeconds / hopSeconds);
         if (maxHoldHops < 1)
