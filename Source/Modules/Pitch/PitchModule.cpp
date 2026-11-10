@@ -13,6 +13,7 @@ PitchModule::PitchModule (juce::AudioProcessorValueTreeState& s)
     pHumanize = s.getRawParameterValue (ids::pitchHumanize);
     pFormant  = s.getRawParameterValue (ids::pitchFormant);
     pMix      = s.getRawParameterValue (ids::pitchMix);
+    pTransition = s.getRawParameterValue (ids::pitchTransition);
 }
 
 juce::String PitchModule::getEnabledParamId() const { return ids::pitchOn; }
@@ -55,6 +56,7 @@ void PitchModule::prepare (double sr, int /*maxBlockSize*/, int channels)
     detector.prepare (sr, cfg.window, cfg.minF0, cfg.maxF0);
     shifter.prepare (sr, cfg.maxPeriod, cfg.latency);
     voicing.prepare ((double) cfg.hop / sr);
+    transition.prepare ((double) cfg.hop / sr);
 
     detectRing.assign ((size_t) cfg.window, 0.0f);
     frame.assign ((size_t) cfg.window, 0.0f);
@@ -80,6 +82,7 @@ void PitchModule::reset()
 {
     shifter.reset();
     voicing.reset();
+    transition.reset();
     quantizer.resetHysteresis();
     std::fill (detectRing.begin(), detectRing.end(), 0.0f);
     dryDelay.clear();
@@ -132,7 +135,10 @@ void PitchModule::analyseHop()
 
         // Humanize keeps part of the natural pitch movement (0 % = fully robotic).
         const float keep = 0.7f * juce::jlimit (0.0f, 1.0f, pHumanize->load() * 0.01f);
-        const float rawShift = (target - midi) * (1.0f - keep);
+        // Transition: during fast slides between notes, fade the correction out so the
+        // slide sounds natural instead of a fluttering staircase of notes.
+        const float slide = transition.update (midi) * juce::jlimit (0.0f, 1.0f, pTransition->load() * 0.01f);
+        const float rawShift = (target - midi) * (1.0f - keep) * (1.0f - slide);
         shiftSemis += alpha * (rawShift - shiftSemis);
 
         const double ratio = std::pow (2.0, shiftSemis / 12.0);
@@ -145,6 +151,7 @@ void PitchModule::analyseHop()
     else
     {
         medianCount = 0;
+        transition.unvoiced();
         shiftSemis += alpha * (0.0f - shiftSemis);
         if (++unvoicedHops * hopSec > 0.12f)
             quantizer.resetHysteresis();

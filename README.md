@@ -6,7 +6,7 @@ All-in-One-Vocal-Plugin: Tonhöhenkorrektur (Hard-Tune-Effekt) plus Vocal-Kette,
 
 | Modul | Funktionen |
 |---|---|
-| **Pitch Correction** | Tonart + Skala (Chromatic, Major, Minor, Harmonic Minor, Pentatonik, Blues), Retune Speed (0 ms = harter Robo-Effekt), Humanize, Formant-Shift, Mix. S-, F- und T-Laute sowie Atmer werden nicht korrigiert. Formanten bleiben erhalten (kein Micky-Maus-Effekt). |
+| **Pitch Correction** | Tonart + Skala (Chromatic, Major, Minor, Harmonic Minor, Pentatonik, Blues), Retune Speed (0 ms = harter Robo-Effekt), Humanize, **Transition** (Gleiter zwischen Tönen laufen natürlich statt als flatternde Treppe; 0 % = klassische harte Stufen), Formant-Shift, Mix. S-, F- und T-Laute sowie Atmer werden nicht korrigiert. Formanten bleiben erhalten (kein Micky-Maus-Effekt). |
 | **HPF** | Hochpass 12 oder 24 dB/Okt. gegen Rumpeln |
 | **EQ** | Low Shelf (Wärme/Mulm), Mitten-Glocke (Präsenz), High Shelf (Air) |
 | **Compressor** | Threshold, Ratio, Attack, Release, Makeup, Mix (Parallel-Kompression), GR-Anzeige |
@@ -42,6 +42,7 @@ Bei Versionen mit Tag (z. B. `v0.1.0`) liegt die ZIP-Datei zusätzlich unter **R
 - **Key / Scale**: Tonart des Beats (z. B. A Minor). Wenn du sie nicht weisst: *Chromatic* korrigiert auf jeden Halbton.
 - **Retune**: 0 ms = harter Trap-Sound, 20–60 ms = natürlicher, 100+ ms = sehr dezent.
 - **Humanize**: lässt einen Teil der natürlichen Tonhöhenbewegung durch.
+- **Transition**: 80 % (Standard) = schnelle Gleiter zwischen Tönen klingen sauber, gehaltene Töne bleiben hart getunt. 0 % = klassischer T-Pain-Treppen-Effekt.
 - **Formant**: Stimme dunkler (–) oder heller (+), ohne die Tonhöhe zu ändern.
 - **Quality**: Zum Aufnehmen *Live*, zum Mixen *High Quality*.
 

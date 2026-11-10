@@ -6,6 +6,7 @@
 #include "Modules/Pitch/ScaleQuantizer.h"
 #include "Modules/Pitch/PsolaShifter.h"
 #include "Modules/Pitch/VoicingTracker.h"
+#include "Modules/Pitch/TransitionDetector.h"
 
 #include <algorithm>
 #include <cmath>
@@ -83,7 +84,7 @@ double measurePitch (const std::vector<float>& sig, int start)
 /** Same processing as PitchModule, without the plugin framework. */
 std::vector<float> runCorrection (const std::vector<float>& in, int key, int scale,
                                   float retuneMs, double formantSemis = 0.0, double forcedShift = 1000.0,
-                                  bool useTracker = true)
+                                  bool useTracker = true, float transitionAmount = 0.8f)
 {
     const auto c = liveCfg();
     PitchDetector det;
@@ -94,6 +95,8 @@ std::vector<float> runCorrection (const std::vector<float>& in, int key, int sca
     sh.prepare (sr, c.maxPeriod, c.latency);
     VoicingTracker vt;
     vt.prepare ((double) c.hop / sr);
+    TransitionDetector td;
+    td.prepare ((double) c.hop / sr);
     sh.setFormantRatio (std::pow (2.0, formantSemis / 12.0));
 
     std::vector<float> ring ((size_t) c.window, 0.0f), frame ((size_t) c.window);
@@ -122,12 +125,16 @@ std::vector<float> runCorrection (const std::vector<float>& in, int key, int sca
             if (r.voiced)
             {
                 const float midi = 69.0f + 12.0f * std::log2 (r.f0 / 440.0f);
-                const float raw = forcedShift < 999.0 ? (float) forcedShift : q.quantize (midi) - midi;
+                const float slide = td.update (midi) * transitionAmount;
+                const float raw = forcedShift < 999.0 ? (float) forcedShift : (q.quantize (midi) - midi) * (1.0f - slide);
                 shift += a * (raw - shift);
                 sh.pushTrackPoint (counter - c.window / 2, sr / r.f0, true, std::pow (2.0, shift / 12.0));
             }
             else
+            {
+                td.unvoiced();
                 sh.pushTrackPoint (counter - c.window / 2, 0.0, false, 1.0);
+            }
         }
         out[i] = sh.processSample (in[i]);
     }
@@ -231,6 +238,46 @@ double pitchWobbleCents (const std::vector<float>& sig, int start, double ref)
         return 1e9;
     const double mean = sum / n;
     return std::sqrt (juce::jmax (0.0, sumSq / n - mean * mean)) + std::abs (mean) * 0.0;
+}
+
+
+/** Voice that holds one note, slides to another, then holds again. */
+std::vector<float> makeGlide (double fromMidi, double toMidi, double holdA, double glide, double holdB,
+                              double detuneCents = 25.0)
+{
+    const int n = (int) (sr * (holdA + glide + holdB));
+    std::vector<float> v ((size_t) n);
+    double phase = 0.0;
+    for (int i = 0; i < n; ++i)
+    {
+        const double t = i / sr;
+        double m = t < holdA ? fromMidi : (t < holdA + glide ? fromMidi + (toMidi - fromMidi) * (t - holdA) / glide : toMidi);
+        m += detuneCents / 100.0; // sung slightly off, so the held notes need correcting
+        const double f = 440.0 * std::pow (2.0, (m - 69.0) / 12.0);
+        phase += 2.0 * pi * f / sr;
+        double s = 0.0;
+        for (int h = 1; h <= 12 && h * f < sr * 0.45; ++h)
+            s += std::sin (h * phase) / h;
+        v[(size_t) i] = (float) (0.3 * s);
+    }
+    return v;
+}
+
+/** Per-hop output pitch (MIDI) between t0 and t1 seconds. */
+std::vector<double> pitchTrack (const std::vector<float>& sig, double t0, double t1)
+{
+    const auto c = liveCfg();
+    PitchDetector det;
+    det.prepare (sr, c.window, 60.0f, 1200.0f);
+    std::vector<double> out;
+    for (int pos = (int) (t0 * sr) - c.window / 2; pos + c.window <= (int) (t1 * sr) + c.window / 2 && pos + c.window <= (int) sig.size(); pos += 64)
+    {
+        if (pos < 0) continue;
+        auto r = det.analyse (sig.data() + pos);
+        if (r.voiced)
+            out.push_back (69.0 + 12.0 * std::log2 (r.f0 / 440.0));
+    }
+    return out;
 }
 
 bool allFinite (const std::vector<float>& v)
@@ -371,6 +418,40 @@ int main()
             const double wOut = pitchWobbleCents (out, settle, 220.0);
             check (wOut < 3.0, "hard tune flattens " + juce::String (vib, 0) + " ct vibrato: wobble "
                                   + juce::String (wIn, 1) + " -> " + juce::String (wOut, 2) + " ct");
+        }
+    }
+
+
+    // ---- Transition: slides pass smoothly, held notes stay hard-tuned -----------
+    {
+        // D#3 (51) -> slide 300 ms -> C3 (48), C minor, sung 25 cents sharp.
+        auto in = makeGlide (51.0, 48.0, 0.5, 0.3, 0.6);
+        const double latSec = (2.0 * std::ceil (sr / 90.0) + 32.0) / sr;
+        for (float amount : { 0.0f, 0.8f })
+        {
+            auto out = runCorrection (in, 0, ScaleQuantizer::Minor, 0.0f, 0.0, 1000.0, true, amount);
+            // Fraction of the slide spent "stuck" exactly on a semitone (staircase indicator).
+            auto slide = pitchTrack (out, 0.55 + latSec, 0.75 + latSec);
+            int stuck = 0;
+            for (double m : slide)
+                if (std::abs (m - std::round (m)) < 0.08)
+                    ++stuck;
+            const double stuckPct = slide.empty() ? 0.0 : 100.0 * stuck / (double) slide.size();
+            // Held notes after settling must be in tune.
+            auto holdA = pitchTrack (out, 0.25 + latSec, 0.45 + latSec);
+            auto holdB = pitchTrack (out, 1.0 + latSec, 1.3 + latSec);
+            double errA = 0.0, errB = 0.0;
+            for (double m : holdA) errA = std::max (errA, std::abs (m - 51.0) * 100.0);
+            for (double m : holdB) errB = std::max (errB, std::abs (m - 48.0) * 100.0);
+            std::printf ("       transition %3.0f %%: slide on-semitone %.0f %%, hold errors %.1f / %.1f ct\n",
+                         amount * 100.0, stuckPct, errA, errB);
+            check (errA < 6.0 && errB < 6.0, "transition " + juce::String (amount * 100.0f, 0)
+                                                 + " %: held notes hard-tuned");
+            if (amount > 0.5f)
+                check (stuckPct < 40.0, "transition 80 %: slide is smooth, not a staircase ("
+                                            + juce::String (stuckPct, 0) + " % on semitones)");
+            else
+                check (stuckPct > 60.0, "transition 0 %: classic hard steps (" + juce::String (stuckPct, 0) + " %)");
         }
     }
 

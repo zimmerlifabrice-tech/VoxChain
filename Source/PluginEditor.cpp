@@ -36,6 +36,7 @@ VoxChainEditor::VoxChainEditor (VoxChainProcessor& p)
       scaleChoice  (p.getState(), ids::pitchScale, "Scale"),
       retuneKnob   (p.getState(), ids::pitchRetune,   "Retune",   "0 ms = hard, robotic tuning. Higher = smoother, more natural."),
       humanizeKnob (p.getState(), ids::pitchHumanize, "Humanize", "Lets part of the natural pitch movement through."),
+      transitionKnob (p.getState(), ids::pitchTransition, "Transition", "Lets fast slides between notes pass naturally (no fluttering staircase). 0 % = classic hard steps."),
       formantKnob  (p.getState(), ids::pitchFormant,  "Formant",  "Shifts the voice character darker (-) or brighter (+) without changing pitch."),
       pitchMixKnob (p.getState(), ids::pitchMix,      "Mix",      "Blend between the original and the tuned voice."),
       pitchDisplay (*p.getPitchModule(), p.getState()),
@@ -86,7 +87,7 @@ VoxChainEditor::VoxChainEditor (VoxChainProcessor& p)
         p.getState(), ids::pitchOn, pitchPower);
     for (auto* c : { (juce::Component*) &keyChoice, (juce::Component*) &scaleChoice,
                      (juce::Component*) &retuneKnob, (juce::Component*) &humanizeKnob,
-                     (juce::Component*) &formantKnob, (juce::Component*) &pitchMixKnob,
+                     (juce::Component*) &transitionKnob, (juce::Component*) &formantKnob, (juce::Component*) &pitchMixKnob,
                      (juce::Component*) &pitchDisplay })
         addAndMakeVisible (c);
 
@@ -195,10 +196,12 @@ void VoxChainEditor::resized()
         const int halfH = controls.getHeight() / 2;
         auto row1 = controls.removeFromTop (halfH);
         auto row2 = controls;
-        retuneKnob.setBounds   (row1.removeFromLeft (row1.getWidth() / 2));
-        humanizeKnob.setBounds (row1);
-        formantKnob.setBounds  (row2.removeFromLeft (row2.getWidth() / 2));
-        pitchMixKnob.setBounds (row2);
+        const int third = row1.getWidth() / 3;
+        retuneKnob.setBounds     (row1.removeFromLeft (third));
+        humanizeKnob.setBounds   (row1.removeFromLeft (third));
+        transitionKnob.setBounds (row1);
+        formantKnob.setBounds    (row2.removeFromLeft (third));
+        pitchMixKnob.setBounds   (row2.removeFromLeft (third));
     }
 
     // ---- Module chain ----

@@ -5,6 +5,7 @@
 #include "ScaleQuantizer.h"
 #include "PsolaShifter.h"
 #include "VoicingTracker.h"
+#include "TransitionDetector.h"
 
 namespace vox
 {
@@ -57,11 +58,13 @@ private:
     std::atomic<float>* pHumanize;
     std::atomic<float>* pFormant;
     std::atomic<float>* pMix;
+    std::atomic<float>* pTransition;
 
     PitchDetector detector;
     ScaleQuantizer quantizer;
     PsolaShifter shifter;
     VoicingTracker voicing;
+    TransitionDetector transition;
 
     Quality quality = Quality::Live;
     double sampleRate = 44100.0;

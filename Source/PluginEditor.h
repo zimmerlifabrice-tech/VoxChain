@@ -44,7 +44,7 @@ private:
     juce::ToggleButton pitchPower { "ON" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> pitchPowerAttachment;
     vox::Choice keyChoice, scaleChoice;
-    vox::Knob retuneKnob, humanizeKnob, formantKnob, pitchMixKnob;
+    vox::Knob retuneKnob, humanizeKnob, transitionKnob, formantKnob, pitchMixKnob;
     vox::PitchDisplay pitchDisplay;
 
     // Chain modules
