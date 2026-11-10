@@ -51,10 +51,14 @@ public:
     enum class MarkAlign { None, Peak, Correlation };
     MarkAlign markAlign = MarkAlign::Correlation;
     bool useNearestMark = false;     // nearest analysis mark instead of latest-before
+    /** Keep the voice's natural cycle-to-cycle irregularity (jitter) in the output.
+        Without it every output cycle is exactly identical, which makes breath/rasp
+        repeat in a perfectly regular rhythm and sounds like a buzzing vibration. */
+    bool keepJitter = true;
 
 private:
     struct TrackPoint { int64_t pos = 0; double period = 0.0; bool voiced = false; double ratio = 1.0; double outPeriod = 0.0; };
-    struct Mark       { int64_t pos = 0; double period = 0.0; bool voiced = false; double outPeriod = 0.0; };
+    struct Mark       { int64_t pos = 0; double period = 0.0; bool voiced = false; double outPeriod = 0.0; double jitter = 1.0; };
 
     TrackPoint lookupTrack (int64_t pos) const noexcept;
     int64_t findMarkAtOrBefore (double pos) const noexcept;

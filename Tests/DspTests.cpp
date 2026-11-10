@@ -280,6 +280,42 @@ std::vector<double> pitchTrack (const std::vector<float>& sig, double t0, double
     return out;
 }
 
+
+/** Regular modulation ("vibration") of the output on a steady note: returns the
+    strongest envelope modulation peak between 1 and 60 Hz (dB re mean level) and its frequency. */
+std::pair<double, double> envelopeFlutter (const std::vector<float>& sig, int start, int len)
+{
+    // Envelope: |x| through a 2-pole low-pass at 80 Hz, sampled every 32 samples.
+    std::vector<double> env;
+    double y1 = 0.0, y2 = 0.0;
+    const double a = std::exp (-2.0 * pi * 80.0 / sr);
+    for (int i = start; i < start + len; ++i)
+    {
+        y1 = a * y1 + (1.0 - a) * std::abs ((double) sig[(size_t) i]);
+        y2 = a * y2 + (1.0 - a) * y1;
+        if ((i - start) % 32 == 0)
+            env.push_back (y2);
+    }
+    double mean = 0.0;
+    for (double e : env) mean += e;
+    mean /= (double) env.size();
+    const double fs = sr / 32.0;
+    double best = -200.0, bestF = 0.0;
+    for (double f = 1.0; f <= 60.0; f += 0.25)
+    {
+        double re = 0.0, im = 0.0;
+        for (size_t k = 0; k < env.size(); ++k)
+        {
+            const double w = 0.5 - 0.5 * std::cos (2.0 * pi * k / (env.size() - 1));
+            re += w * (env[k] / mean - 1.0) * std::cos (2.0 * pi * f * k / fs);
+            im += w * (env[k] / mean - 1.0) * std::sin (2.0 * pi * f * k / fs);
+        }
+        const double mag = 20.0 * std::log10 (2.0 * std::sqrt (re * re + im * im) / (0.5 * env.size()) + 1e-12);
+        if (mag > best) { best = mag; bestF = f; }
+    }
+    return { best, bestF };
+}
+
 bool allFinite (const std::vector<float>& v)
 {
     for (auto x : v)
@@ -452,6 +488,21 @@ int main()
                                             + juce::String (stuckPct, 0) + " % on semitones)");
             else
                 check (stuckPct > 60.0, "transition 0 %: classic hard steps (" + juce::String (stuckPct, 0) + " %)");
+        }
+    }
+
+
+    // ---- Regular "vibration" on steady notes -------------------------------------
+    {
+        const int n = (int) (sr * 2.5);
+        for (double off : { 0.0, 15.0, 30.0, 45.0 })
+        {
+            auto in = makeVoice (146.83 * std::pow (2.0, off / 1200.0), n); // D3, sung off by `off` cents
+            auto out = runCorrection (in, 0, ScaleQuantizer::Minor, 0.0f);
+            const auto fin = envelopeFlutter (in, (int) (sr * 0.5), (int) (sr * 1.8));
+            const auto fo = envelopeFlutter (out, (int) (sr * 0.5), (int) (sr * 1.8));
+            std::printf ("       D3 +%2.0f ct: envelope flutter in %.1f dB, out %.1f dB @ %.2f Hz\n", off, fin.first, fo.first, fo.second);
+            check (fo.first < -30.0, "steady note +" + juce::String (off, 0) + " ct: no regular vibration (" + juce::String (fo.first, 1) + " dB @ " + juce::String (fo.second, 1) + " Hz)");
         }
     }
 

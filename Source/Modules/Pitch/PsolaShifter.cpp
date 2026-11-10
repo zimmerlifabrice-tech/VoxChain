@@ -176,6 +176,8 @@ void PsolaShifter::createAnalysisMarks()
         //                (transparent, no extra crackle on raspy voices)
         //  - hard tune -> output period = exact target period (flat pitch)
         m.outPeriod = tp.voiced ? std::clamp (tp.outPeriod, T * 0.5, T * 2.0) : T;
+
+        m.jitter = 1.0;
         marks[(size_t) (markCount % numMarks)] = m;
         ++markCount;
         lastMarkPos = cand;
@@ -232,7 +234,24 @@ float PsolaShifter::processSample (float x)
         }
 
         Mark m = marks[(size_t) (mi % numMarks)];
-        const double tOut = m.voiced ? m.outPeriod : m.period;
+        // Natural jitter: this cycle's real length relative to a CENTRED average over
+        // its neighbours (one before, one after). Slow movement such as vibrato or
+        // slides cancels out; only the cycle-to-cycle irregularity remains.
+        double jitter = 1.0;
+        if (keepJitter && m.voiced && mi >= 1 && mi + 2 < markCount)
+        {
+            const auto& prev = marks[(size_t) ((mi - 1) % numMarks)];
+            const auto& next = marks[(size_t) ((mi + 1) % numMarks)];
+            const auto& next2 = marks[(size_t) ((mi + 2) % numMarks)];
+            if (prev.voiced && next.voiced && next2.voiced)
+            {
+                const double own = (double) (next.pos - m.pos);
+                const double centred = (double) (next2.pos - prev.pos) / 3.0;
+                if (centred > 0.0)
+                    jitter = std::clamp (own / centred, 0.93, 1.07);
+            }
+        }
+        const double tOut = m.voiced ? m.outPeriod * jitter : m.period;
 
         // Grain length: at least two input periods, and long enough that grains
         // always overlap (no gaps when pitching down or shifting formants up).
