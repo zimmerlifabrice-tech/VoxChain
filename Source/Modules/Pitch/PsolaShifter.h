@@ -43,9 +43,18 @@ public:
 
     int getLatency() const noexcept { return latency; }
 
+    // Tunables (exposed for testing different strategies)
+    /** How analysis marks are aligned to the voice's glottal cycles.
+        Correlation (default) follows the real cycles smoothly, which keeps hard tune
+        flat AND does not add crackle on raspy voices. Peak = old method (jumps between
+        peaks on rough voices). None = fixed spacing (drifts during vibrato). */
+    enum class MarkAlign { None, Peak, Correlation };
+    MarkAlign markAlign = MarkAlign::Correlation;
+    bool useNearestMark = false;     // nearest analysis mark instead of latest-before
+
 private:
     struct TrackPoint { int64_t pos = 0; double period = 0.0; bool voiced = false; double ratio = 1.0; double outPeriod = 0.0; };
-    struct Mark       { int64_t pos = 0; double period = 0.0; bool voiced = false; };
+    struct Mark       { int64_t pos = 0; double period = 0.0; bool voiced = false; double outPeriod = 0.0; };
 
     TrackPoint lookupTrack (int64_t pos) const noexcept;
     int64_t findMarkAtOrBefore (double pos) const noexcept;
@@ -71,6 +80,7 @@ private:
     std::vector<Mark> marks;
     int64_t markCount = 0;
     int64_t lastMarkPos = 0;
+    bool lastMarkVoiced = false;
 
     double nextSynth = 0.0;
     bool primed = false;

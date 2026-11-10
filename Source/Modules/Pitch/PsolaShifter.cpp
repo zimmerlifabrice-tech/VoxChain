@@ -44,6 +44,7 @@ void PsolaShifter::reset()
     trackCount = 0;
     markCount = 0;
     lastMarkPos = 0;
+    lastMarkVoiced = false;
     nextSynth = 0.0;
     primed = false;
 }
@@ -123,15 +124,14 @@ void PsolaShifter::createAnalysisMarks()
         const auto tp = lookupTrack (lastMarkPos);
         const double T = tp.voiced ? tp.period : unvoicedPeriod;
         int64_t cand = lastMarkPos + (int64_t) std::llround (T);
-        const int search = tp.voiced ? (int) (T * 0.125) : 0;
+        const int search = (tp.voiced && markAlign != MarkAlign::None) ? (int) (T * 0.125) : 0;
 
         // Need the whole grain (up to about two periods after the mark) to be available.
         if (cand + (int64_t) std::ceil (2.0 * T) + search + 1 > newest)
             break;
 
-        if (search > 0)
+        if (search > 0 && markAlign == MarkAlign::Peak)
         {
-            // Align the mark to the strongest peak near the expected position.
             int64_t bestPos = cand;
             float bestVal = -1.0e9f;
             for (int64_t p = cand - search; p <= cand + search; ++p)
@@ -145,14 +145,41 @@ void PsolaShifter::createAnalysisMarks()
             }
             cand = std::max (bestPos, lastMarkPos + (int64_t) std::ceil (T * 0.5));
         }
+        else if (search > 0 && markAlign == MarkAlign::Correlation && lastMarkVoiced)
+        {
+            // Find the shift where the next cycle looks most like the previous one.
+            const int h = std::max (4, (int) (T * 0.5));
+            int64_t bestPos = cand;
+            double bestCorr = -1.0e30;
+            for (int64_t p = cand - search; p <= cand + search; ++p)
+            {
+                double c = 0.0;
+                for (int k = -h; k <= h; ++k)
+                    c += (double) inRing[(size_t) ((lastMarkPos + k) & ringMask)]
+                       * (double) inRing[(size_t) ((p + k) & ringMask)];
+                if (c > bestCorr)
+                {
+                    bestCorr = c;
+                    bestPos = p;
+                }
+            }
+            cand = bestPos;
+        }
 
         Mark m;
         m.pos = cand;
         m.period = T;
         m.voiced = tp.voiced;
+        // Target output period from the SAME pitch frame as m.period, so that
+        // input spacing and output spacing are always consistent:
+        //  - ratio 1  -> output grains land exactly where the input ones were
+        //                (transparent, no extra crackle on raspy voices)
+        //  - hard tune -> output period = exact target period (flat pitch)
+        m.outPeriod = tp.voiced ? std::clamp (tp.outPeriod, T * 0.5, T * 2.0) : T;
         marks[(size_t) (markCount % numMarks)] = m;
         ++markCount;
         lastMarkPos = cand;
+        lastMarkVoiced = tp.voiced;
     }
 }
 
@@ -196,10 +223,16 @@ float PsolaShifter::processSample (float x)
         if (mi < 0)
             break;
 
+        if (useNearestMark && mi + 1 < markCount)
+        {
+            const auto& a = marks[(size_t) (mi % numMarks)];
+            const auto& b = marks[(size_t) ((mi + 1) % numMarks)];
+            if ((double) b.pos - nextSynth < nextSynth - (double) a.pos)
+                ++mi;
+        }
+
         Mark m = marks[(size_t) (mi % numMarks)];
-        const auto tp = lookupTrack ((int64_t) nextSynth);
-        const bool tuned = m.voiced && tp.voiced;
-        const double tOut = tuned ? std::clamp (tp.outPeriod, m.period * 0.5, m.period * 2.0) : m.period;
+        const double tOut = m.voiced ? m.outPeriod : m.period;
 
         // Grain length: at least two input periods, and long enough that grains
         // always overlap (no gaps when pitching down or shifting formants up).
