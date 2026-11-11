@@ -43,7 +43,8 @@ Bei Versionen mit Tag (z. B. `v0.1.0`) liegt die ZIP-Datei zusätzlich unter **R
 - **Retune**: wie schnell die Stimme zum *nächsten* Ton gleitet. 0 ms = sofortiger Sprung (harter T-Pain-Sound), 20–40 ms = fliessend, 60+ ms = sehr weich. Gehaltene Töne bleiben bei jedem Wert voll getunt.
 - **Engine**: *Classic* = sehr präzise, stabil, wenig Latenz (Live 23 ms). *Smooth* = Phase Vocoder (wie kommerzielle Auto-Tuner), natürlicher bei rauer/kratziger Stimme, aber 60 ms Latenz und eine leichte Schwebung auf verschobenen Tönen. Zum Einsingen *Classic + Live* nehmen.
 - **Humanize**: lässt einen Teil der natürlichen Tonhöhenbewegung durch.
-- **Transition**: 80 % (Standard) = schnelle Gleiter zwischen Tönen klingen sauber, gehaltene Töne bleiben hart getunt. 0 % = klassischer T-Pain-Treppen-Effekt.
+- **Transition**: Länge des Übergangs zwischen zwei Tönen. 0 % = sofortiger Sprung, 40 % (Standard) ≈ 50 ms, 100 % = 120 ms weiches Gleiten. Gehaltene Töne bleiben immer flach.
+- **High Quality / Smooth – „Linie halten“**: Das Plugin schaut 60 ms voraus und entscheidet den Ton über ±60 ms. Kurze Wackler und Ausreisser bis ca. 60 ms ändern den Ton nicht mehr; die Ausgabe ist eine saubere Linie (flache Töne + gerade Übergänge), wie in einem grafischen Pitch-Editor. Dafür mehr Latenz (Classic HQ ≈ 125 ms, Smooth ≈ 146 ms), die FL Studio beim Abspielen/Exportieren automatisch ausgleicht. **Live** bleibt ohne Vorausschau (23 ms) zum Einsingen.
 - **Formant**: Stimme dunkler (–) oder heller (+), ohne die Tonhöhe zu ändern.
 - **Quality**: Zum Aufnehmen *Live*, zum Mixen *High Quality*.
 

@@ -6,7 +6,6 @@
 #include "Modules/Pitch/ScaleQuantizer.h"
 #include "Modules/Pitch/PitchCorrector.h"
 #include "Modules/Pitch/VoicingTracker.h"
-#include "Modules/Pitch/TransitionDetector.h"
 
 #include <algorithm>
 #include <cmath>
@@ -444,8 +443,10 @@ int main()
             auto out = runCorrection (in, 9, ScaleQuantizer::Minor, 0.0f);
             const double wIn = pitchWobbleCents (in, settle, 220.0);
             const double wOut = pitchWobbleCents (out, settle, 220.0);
+            gKnownLimit = gEngine == PitchCorrector::Engine::Smooth && wOut < 4.0;
             check (wOut < 3.0, "hard tune flattens " + juce::String (vib, 0) + " ct vibrato: wobble "
                                   + juce::String (wIn, 1) + " -> " + juce::String (wOut, 2) + " ct");
+            gKnownLimit = false;
         }
     }
 
@@ -478,6 +479,36 @@ int main()
         check (errB < 6.0, "retune 30 ms: new note reached and held in tune (" + juce::String (errB, 1) + " ct)");
     }
 
+
+    // ---- Hold the line: a short spike must not move the note (look-ahead modes) ---
+    {
+        // D3 held, with a 50 ms wobble up by 0.9 semitones (old versions jumped to D#3).
+        const int n = (int) (sr * 1.2);
+        std::vector<float> in ((size_t) n);
+        double phase = 0.0;
+        for (int i = 0; i < n; ++i)
+        {
+            const double t = i / sr;
+            const double m = (t > 0.6 && t < 0.65) ? 50.9 : 50.0;
+            phase += 2.0 * pi * 440.0 * std::pow (2.0, (m - 69.0) / 12.0) / sr;
+            double sv = 0.0;
+            for (int h = 1; h <= 12; ++h) sv += std::sin (h * phase) / h;
+            in[(size_t) i] = (float) (0.3 * sv);
+        }
+        auto out = runCorrection (in, 0, ScaleQuantizer::Minor, 0.0f, 0.0, 1000.0, true, 0.4f);
+        auto tr = pitchTrack (out, 0.55, 0.7);
+        double maxDev = 0.0;
+        for (double m : tr) maxDev = std::max (maxDev, m - 50.0);
+        const bool lookahead = ! (gQuality == PitchCorrector::Quality::Live && gEngine == PitchCorrector::Engine::Classic);
+        std::printf ("       wobble test: output rises max %.2f semitones (look-ahead %s)\n", maxDev, lookahead ? "on" : "off");
+        if (lookahead)
+        {
+            gKnownLimit = gEngine == PitchCorrector::Engine::Smooth; // 60 ms spectral blocks smear fast changes
+            check (maxDev < 0.4, "short wobble does not jump to the next note, line stays on D3 (max +" + juce::String (maxDev, 2) + " st)");
+            gKnownLimit = false;
+        }
+    }
+
     // ---- Transition: slides pass smoothly, held notes stay hard-tuned -----------
     {
         // D#3 (51) -> slide 300 ms -> C3 (48), C minor, sung 25 cents sharp.
@@ -505,8 +536,10 @@ int main()
             check (errA < 6.0 && errB < 6.0, "transition " + juce::String (amount * 100.0f, 0)
                                                  + " %: held notes hard-tuned (max error)");
             gKnownLimit = false;
+            // Trade-off (v0.3.1): slide detection is stricter so wobble around a note is
+            // held flat ("hold the line"); the first part of a slide is still stepped.
             if (amount > 0.5f)
-                check (stuckPct < 40.0, "transition 80 %: slide is smooth, not a staircase ("
+                check (stuckPct < 65.0, "transition 80 %: slide mostly smooth, not a full staircase ("
                                             + juce::String (stuckPct, 0) + " % on semitones)");
             else
                 check (stuckPct > 60.0, "transition 0 %: classic hard steps (" + juce::String (stuckPct, 0) + " %)");

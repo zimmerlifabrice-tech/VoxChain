@@ -3,7 +3,6 @@
 #include "PitchDetector.h"
 #include "ScaleQuantizer.h"
 #include "VoicingTracker.h"
-#include "TransitionDetector.h"
 #include "PsolaShifter.h"
 
 #include <atomic>
@@ -19,7 +18,11 @@ namespace vox
         detector (YIN / pYIN stage 1)
           -> voicing tracker (holds notes through raspy dropouts)
           -> scale quantizer (key/scale + hysteresis)
-          -> transition detector (natural slides) + humanize + retune smoothing
+          -> note decision: in High Quality / Smooth the engine looks 60 ms ahead
+             and takes the median note over +-60 ms, so short wobbles/spikes never
+             change the note (the output is a clean "line": flat notes joined by
+             straight transitions, like a graphical pitch editor)
+          -> transition ramp between notes + retune smoothing + humanize
           -> pitch shifter, chosen by the Engine setting:
                Classic : TD-PSOLA (time domain). Very precise and stable pitch,
                          low latency (Live ~23 ms, High Quality ~39 ms).
@@ -64,10 +67,12 @@ public:
     std::atomic<float> detectedMidi { -1.0f }, correctedMidi { -1.0f }, targetMidi { -1.0f };
 
 private:
-    struct Config { float minF0, maxF0; int window, hop, block, interval, maxPeriod, psolaLatency; bool usePsola; };
+    struct Config { float minF0, maxF0; int window, hop, block, interval, maxPeriod, psolaLatency; bool usePsola; int lookahead, delay; };
     static Config makeConfig (double sampleRate, Quality quality, Engine engine);
 
     void analyseHop (const Settings& s);
+    void evaluateUpTo (int64_t limitCentre, const Settings& s);
+    void evaluateHop (int64_t index, const Settings& s);
     double ratioAt (int64_t pos) const noexcept;
 
     struct StretchHolder;
@@ -77,7 +82,6 @@ private:
     PitchDetector detector;
     ScaleQuantizer quantizer;
     VoicingTracker voicing;
-    TransitionDetector transition;
 
     double sampleRate = 44100.0;
     Quality quality = Quality::Live;
@@ -94,6 +98,22 @@ private:
     static constexpr int numTrack = 128;
     TrackPoint track[numTrack] {};
     int64_t trackCount = 0;
+
+    // Raw per-hop analysis, evaluated later (with look-ahead) into the ratio track
+    struct RawHop { int64_t centre = 0; float midi = 0.0f; float f0 = 0.0f; int note = 0; bool voiced = false; };
+    static constexpr int numRaw = 512;
+    RawHop raw[numRaw] {};
+    int64_t rawCount = 0, evalIndex = 0;
+    int noteBuf[64] {};
+
+    // Look-ahead delay of the audio path
+    std::vector<float> delayRing;
+    int delayWrite = 0;
+
+    // Line state
+    int currentNote = -1000;
+    float rampFrom = 0.0f, rampTo = 0.0f;
+    int rampPos = 0, rampLen = 1;
 
     float shiftSemis = 0.0f;
     float glideTarget = -1.0f; // target note gliding at retune speed (-1 = none)
