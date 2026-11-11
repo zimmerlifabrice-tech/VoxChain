@@ -23,7 +23,8 @@ public:
 
     void prepare (double sampleRate, int maxBlockSize, int numChannels);
     void reset();
-    void process (juce::AudioBuffer<float>& buffer, int numSamples);
+    /** skip: a module to leave out completely (e.g. pitch for zero-latency monitoring). */
+    void process (juce::AudioBuffer<float>& buffer, int numSamples, const ModuleBase* skip = nullptr);
 
     int    getTotalLatencySamples() const;
     double getTotalTailSeconds() const;

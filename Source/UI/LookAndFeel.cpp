@@ -115,4 +115,9 @@ void VoxLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
     g.drawFittedText (label.getText(), label.getLocalBounds(), label.getJustificationType(), 1);
 }
 
+juce::Font VoxLookAndFeel::getTextButtonFont (juce::TextButton&, int buttonHeight)
+{
+    return juce::FontOptions (juce::jmin (13.0f, (float) buttonHeight * 0.5f), juce::Font::bold);
+}
+
 } // namespace vox

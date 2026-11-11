@@ -57,6 +57,14 @@ namespace vox::ids
     inline constexpr const char* deessThreshold = "deess_threshold";
     inline constexpr const char* deessRange     = "deess_range";
     inline constexpr const char* deessListen    = "deess_listen";
+
+    // Recording (Phase 2)
+    inline constexpr const char* recMode        = "rec_mode";          // Manual / With FL Studio
+    inline constexpr const char* recMetronome   = "rec_metronome";
+    inline constexpr const char* recCountIn     = "rec_countin";       // Off / 1 bar / 2 bars
+    inline constexpr const char* recMonitorOn   = "rec_monitor_on";
+    inline constexpr const char* recMonitorMode = "rec_monitor_mode";  // Dry / FX / FX + Tune
+    inline constexpr const char* recOffsetMs    = "rec_offset_ms";     // input latency compensation
 }
 
 namespace vox

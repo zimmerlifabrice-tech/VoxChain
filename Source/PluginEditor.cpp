@@ -63,7 +63,8 @@ VoxChainEditor::VoxChainEditor (VoxChainProcessor& p)
                   { { ids::deessFreq,      "Freq",   "Sibilance split frequency (S sounds: 5-9 kHz)" },
                     { ids::deessThreshold, "Thresh", "Level where de-essing starts" },
                     { ids::deessRange,     "Range",  "Maximum reduction of the S sounds" } }, 3,
-                  p.findModule ("deess"))
+                  p.findModule ("deess")),
+      recordPanel (p)
 {
     setLookAndFeel (&lnf);
 
@@ -98,11 +99,26 @@ VoxChainEditor::VoxChainEditor (VoxChainProcessor& p)
     for (auto* s : { &hpfStrip, &eqStrip, &compStrip, &deessStrip })
         addAndMakeVisible (s);
 
+    for (auto* t : { &chainTab, &recordTab })
+    {
+        t->setClickingTogglesState (true);
+        t->setRadioGroupId (4711);
+        t->setColour (juce::TextButton::buttonColourId, colours::panel);
+        t->setColour (juce::TextButton::buttonOnColourId, colours::accent);
+        t->setColour (juce::TextButton::textColourOffId, colours::textDim);
+        t->setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+        addAndMakeVisible (t);
+    }
+    chainTab.onClick = [this] { showTab (false); };
+    recordTab.onClick = [this] { showTab (true); };
+    addChildComponent (recordPanel);
+    showTab (p.isArmed());
+
     setResizable (true, true);
-    setResizeLimits (920, 600, 1840, 1200);
+    setResizeLimits (980, 680, 1960, 1360);
     if (auto* c = getConstrainer())
-        c->setFixedAspectRatio (1100.0 / 700.0);
-    setSize (1100, 700);
+        c->setFixedAspectRatio (1100.0 / 760.0);
+    setSize (1100, 760);
 
     startTimerHz (30);
 }
@@ -121,6 +137,15 @@ void VoxChainEditor::timerCallback()
                           juce::dontSendNotification);
 }
 
+void VoxChainEditor::showTab (bool record)
+{
+    chainTab.setToggleState (! record, juce::dontSendNotification);
+    recordTab.setToggleState (record, juce::dontSendNotification);
+    recordPanel.setVisible (record);
+    for (auto* s : { &hpfStrip, &eqStrip, &compStrip, &deessStrip })
+        s->setVisible (! record);
+}
+
 void VoxChainEditor::paint (juce::Graphics& g)
 {
     g.fillAll (colours::background);
@@ -132,7 +157,7 @@ void VoxChainEditor::paint (juce::Graphics& g)
     g.drawText ("VOXCHAIN", header.removeFromLeft (150), juce::Justification::centredLeft);
     g.setColour (colours::textDim);
     g.setFont (juce::FontOptions (12.0f));
-    g.drawText ("Vocal Suite  |  Phase 1", header.removeFromLeft (180), juce::Justification::centredLeft);
+    g.drawText ("Vocal Suite  |  Phase 2", header.removeFromLeft (180), juce::Justification::centredLeft);
 
     // Pitch panel
     auto pr = pitchPanel.toFloat();
@@ -208,8 +233,16 @@ void VoxChainEditor::resized()
         pitchMixKnob.setBounds   (row2.removeFromLeft (third));
     }
 
+    // ---- Tabs ----
+    r.removeFromTop (10);
+    auto tabs = r.removeFromTop (28);
+    chainTab.setBounds (tabs.removeFromLeft (110));
+    tabs.removeFromLeft (6);
+    recordTab.setBounds (tabs.removeFromLeft (110));
+    r.removeFromTop (8);
+    recordPanel.setBounds (r);
+
     // ---- Module chain ----
-    r.removeFromTop (12);
     const int gap = 10;
     const int total = r.getWidth() - 3 * gap;
     // Proportions: HPF narrow, EQ widest.

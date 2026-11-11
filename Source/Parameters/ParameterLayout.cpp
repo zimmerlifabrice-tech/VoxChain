@@ -128,6 +128,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     layout.add (makeFloat (ids::deessRange,     "De-Ess Range",     { 0.0f, 24.0f, 0.1f }, 8.0f, "dB"));
     layout.add (std::make_unique<Bool> (pid (ids::deessListen), "De-Ess Listen", false));
 
+    // ---- Recording (Phase 2) -----------------------------------------------
+    layout.add (std::make_unique<Choice> (pid (ids::recMode), "Record Mode",
+                                          juce::StringArray { "Manual", "With FL Studio" }, 0));
+    layout.add (std::make_unique<Bool>   (pid (ids::recMetronome), "Metronome", false));
+    layout.add (std::make_unique<Choice> (pid (ids::recCountIn), "Count-In",
+                                          juce::StringArray { "Off", "1 Bar", "2 Bars" }, 0));
+    layout.add (std::make_unique<Bool>   (pid (ids::recMonitorOn), "Monitor", true));
+    layout.add (std::make_unique<Choice> (pid (ids::recMonitorMode), "Monitor Mode",
+                                          juce::StringArray { "Dry (0 ms)", "FX (0 ms)", "FX + Tune" }, 2));
+    layout.add (makeFloat (ids::recOffsetMs, "Record Offset", { 0.0f, 100.0f, 0.1f }, 0.0f, "ms", 1));
+
     return layout;
 }
 

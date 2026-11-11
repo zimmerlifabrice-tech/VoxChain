@@ -21,7 +21,7 @@ void ModuleChain::prepare (double sr, int maxBlockSize, int numChannels)
         s.wet.reset (sr, 0.015); // 15 ms bypass crossfade
         const float on = (s.enabled == nullptr || s.enabled->load() > 0.5f) ? 1.0f : 0.0f;
         s.wet.setCurrentAndTargetValue (on);
-        s.wasFullyBypassed = on < 0.5f;
+        s.wasFullyBypassed = (on < 0.5f) && ! s.module->handlesOwnBypass();
     }
 }
 
@@ -31,16 +31,26 @@ void ModuleChain::reset()
         s.module->reset();
 }
 
-void ModuleChain::process (juce::AudioBuffer<float>& buffer, int numSamples)
+void ModuleChain::process (juce::AudioBuffer<float>& buffer, int numSamples, const ModuleBase* skip)
 {
     const int numCh = juce::jmin (buffer.getNumChannels(), dryBuffer.getNumChannels());
 
     for (auto& s : slots)
     {
         auto& m = *s.module;
+        if (&m == skip)
+        {
+            s.wasFullyBypassed = true; // reset when it comes back
+            continue;
+        }
 
         if (m.handlesOwnBypass())
         {
+            if (s.wasFullyBypassed) // was skipped: start from a clean state
+            {
+                m.reset();
+                s.wasFullyBypassed = false;
+            }
             m.process (buffer, numSamples);
             continue;
         }

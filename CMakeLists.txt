@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(VoxChain VERSION 0.4.0 LANGUAGES C CXX)
+project(VoxChain VERSION 0.5.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -46,7 +46,7 @@ set(VOXCHAIN_DSP_SOURCES
     Source/Modules/Pitch/PsolaShifter.cpp
     Source/Modules/Pitch/PitchCorrector.cpp)
 
-target_sources(VoxChain PRIVATE
+set(VOXCHAIN_PLUGIN_SOURCES
     ${VOXCHAIN_DSP_SOURCES}
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
@@ -60,7 +60,17 @@ target_sources(VoxChain PRIVATE
     Source/Modules/DeEsserModule.cpp
     Source/UI/LookAndFeel.cpp
     Source/UI/PitchDisplay.cpp
-    Source/UI/ModuleStrip.cpp)
+    Source/UI/ModuleStrip.cpp
+    Source/UI/RecordPanel.cpp
+    Source/UI/TakeList.cpp
+    Source/UI/WaveformView.cpp
+    Source/Recording/Metronome.cpp
+    Source/Recording/TakeRecorder.cpp
+    Source/Recording/TakeManager.cpp
+    Source/Recording/TakePlayer.cpp
+    Source/Recording/TakeExporter.cpp)
+
+target_sources(VoxChain PRIVATE ${VOXCHAIN_PLUGIN_SOURCES})
 
 target_include_directories(VoxChain PRIVATE Source
     ThirdParty/signalsmith-stretch/include
@@ -80,6 +90,7 @@ target_link_libraries(VoxChain
     PRIVATE
         juce::juce_audio_processors
         juce::juce_audio_utils
+        juce::juce_audio_formats
         juce::juce_dsp
         juce::juce_gui_basics
     PUBLIC
@@ -103,4 +114,25 @@ if(VOXCHAIN_BUILD_TESTS)
     target_link_libraries(VoxChainTests
         PRIVATE juce::juce_core juce::juce_audio_basics juce::juce_dsp
         PUBLIC  juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+endif()
+
+# ---------------------------------------------------------------------------
+# Integration tests: the real processor (recording, monitoring, state, export)
+# ---------------------------------------------------------------------------
+if(VOXCHAIN_BUILD_TESTS)
+    juce_add_console_app(VoxChainPluginTests PRODUCT_NAME "VoxChainPluginTests")
+    target_sources(VoxChainPluginTests PRIVATE Tests/PluginTests.cpp ${VOXCHAIN_PLUGIN_SOURCES})
+    target_include_directories(VoxChainPluginTests PRIVATE Source
+        ThirdParty/signalsmith-stretch/include
+        ThirdParty/signalsmith-linear/include)
+    target_compile_definitions(VoxChainPluginTests PRIVATE
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="VoxChain" JucePlugin_VersionString="${PROJECT_VERSION}")
+    if(MSVC)
+        target_compile_options(VoxChainPluginTests PRIVATE /bigobj)
+    endif()
+    target_link_libraries(VoxChainPluginTests
+        PRIVATE juce::juce_audio_processors juce::juce_audio_utils juce::juce_audio_formats
+                juce::juce_dsp juce::juce_gui_basics
+        PUBLIC  juce::juce_recommended_config_flags)
 endif()

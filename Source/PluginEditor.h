@@ -5,6 +5,7 @@
 #include "UI/LookAndFeel.h"
 #include "UI/ModuleStrip.h"
 #include "UI/PitchDisplay.h"
+#include "UI/RecordPanel.h"
 
 /** Horizontal input/output peak meter. */
 class LevelMeter : public juce::Component
@@ -49,6 +50,11 @@ private:
 
     // Chain modules
     vox::ModuleStrip hpfStrip, eqStrip, compStrip, deessStrip;
+
+    // Bottom area tabs: CHAIN (modules) / RECORD
+    juce::TextButton chainTab { "CHAIN" }, recordTab { "RECORD" };
+    vox::RecordPanel recordPanel;
+    void showTab (bool record);
 
     juce::Rectangle<int> pitchPanel;
 

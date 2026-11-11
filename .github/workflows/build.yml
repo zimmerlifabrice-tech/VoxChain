@@ -29,10 +29,14 @@ jobs:
         run: cmake -B build -A x64
 
       - name: Build plugin + tests
-        run: cmake --build build --config Release --parallel --target VoxChain_VST3 VoxChainTests
+        run: cmake --build build --config Release --parallel --target VoxChain_VST3 VoxChainTests VoxChainPluginTests
 
       - name: Run DSP tests
         run: build\VoxChainTests_artefacts\Release\VoxChainTests.exe
+        shell: cmd
+
+      - name: Run plugin integration tests (recording, monitoring, state, export)
+        run: build\VoxChainPluginTests_artefacts\Release\VoxChainPluginTests.exe
         shell: cmd
 
       - name: Validate with pluginval (strictness 10)

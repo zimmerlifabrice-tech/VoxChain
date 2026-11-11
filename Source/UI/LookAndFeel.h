@@ -33,6 +33,7 @@ public:
     juce::Font getComboBoxFont (juce::ComboBox&) override;
     juce::Font getLabelFont (juce::Label&) override;
     void drawLabel (juce::Graphics&, juce::Label&) override;
+    juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
 };
 
 } // namespace vox

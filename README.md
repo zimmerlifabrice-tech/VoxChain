@@ -1,4 +1,4 @@
-# VoxChain – Vocal-Plugin für FL Studio (Phase 1)
+# VoxChain – Vocal-Plugin für FL Studio (Phase 2)
 
 All-in-One-Vocal-Plugin: Tonhöhenkorrektur (Hard-Tune-Effekt) plus Vocal-Kette, gebaut für **FL Studio Producer Edition (oder höher)** auf **Windows**.
 
@@ -36,6 +36,28 @@ Bei Versionen mit Tag (z. B. `v0.1.0`) liegt die ZIP-Datei zusätzlich unter **R
 2. FL Studio öffnen → **Options → Manage plugins** → **Find plugins** (oder „Find more plugins“).
 3. In der Liste **VoxChain** suchen und den Stern ★ setzen (Favorit).
 4. Mixer öffnen → einen freien Insert wählen → bei **Input** dein Mikrofon auswählen → in einem leeren Effekt-Slot **VoxChain** laden.
+
+## Aufnehmen im Plugin (Reiter RECORD)
+
+1. Unten auf **RECORD** klicken.
+2. **ARM** einschalten (scharf schalten).
+3. **MONITOR** an/aus = ob du dich selbst hörst. Daneben, *was* du hörst:
+   - **Dry (0 ms)** – deine Stimme pur, ohne zusätzliche Verzögerung
+   - **FX (0 ms)** – mit EQ/Kompressor/De-Esser, ohne Tuning, ohne zusätzliche Verzögerung
+   - **FX + Tune** – mit Autotune; das Plugin nimmt dafür automatisch die schnellste Engine (≈ 23 ms)
+4. Modus wählen:
+   - **Manual** – roter Knopf startet/stoppt. Optional **Count-In** (1–2 Takte) und **CLICK** (Metronom).
+   - **With FL Studio** – nur scharf schalten; FL **Play** startet, **Stop** beendet den Take. Der Name enthält den Start-Takt („Take 3 – Bar 9“).
+5. Takes erscheinen in der Liste: ★ = bester Take, Doppelklick = umbenennen, **PLAY** = vorhören, **DELETE** = löschen.
+6. **In die Playlist:** Take aus der Liste (oder die Wellenform) mit der Maus in die FL-Playlist ziehen.
+7. **EXPORT DRY** = Original-Aufnahme, **EXPORT FX** = mit der ganzen VoxChain-Kette (aktuelle Einstellungen).
+
+Gut zu wissen:
+- Aufgenommen wird **immer trocken** – Tuning und Effekte kannst du später ändern.
+- Das Metronom hörst nur du, es ist nie im Take.
+- Takes liegen unter `Dokumente\VoxChain\Takes\<Sitzung>\` und werden mit dem FL-Projekt gespeichert. Beim Kopieren eines Projekts auf einen anderen PC diesen Ordner mitnehmen.
+- Wenig Verzögerung beim Einsingen: in FL Studio unter **Options → Audio settings** eine kleine Puffergrösse wählen (z. B. 128–256 Samples).
+- **OFFSET**: Falls Takes minimal zu spät liegen (Verzögerung deines Audio-Interfaces), hier ein paar ms einstellen.
 
 ## Die wichtigsten Einstellungen
 
@@ -103,7 +125,7 @@ Tests/                   DSP-Unit-Tests
 ## Roadmap
 
 1. ✅ **Phase 1**: Pitch-Korrektur, HPF, EQ, Kompressor, De-Esser, modulare Engine
-2. Phase 2: Aufnahme im Plugin (Takes, Export, Drag & Drop in die Playlist)
+2. ✅ **Phase 2**: Aufnahme im Plugin (Takes, Monitoring 0 ms, Count-In/Metronom, FL-Sync, Export, Drag & Drop in die Playlist)
 3. Phase 3: Cleanup (Rauschen, Brummen, Plosive, Mouth Clicks, Atmer)
 4. Phase 4: restliche Mixing-Kette + **Custom Vocal Chain Builder** + Presets
 5. Phase 5: Pro-Oberfläche, Analyzer, Preset-Browser
