@@ -34,6 +34,7 @@ VoxChainEditor::VoxChainEditor (VoxChainProcessor& p)
       outputKnob   (p.getState(), ids::outputGain, "Output", "Output gain after the chain"),
       keyChoice    (p.getState(), ids::pitchKey,   "Key"),
       scaleChoice  (p.getState(), ids::pitchScale, "Scale"),
+      engineChoice (p.getState(), ids::pitchEngine, "Engine"),
       retuneKnob   (p.getState(), ids::pitchRetune,   "Retune",   "0 ms = hard, robotic tuning. Higher = smoother, more natural."),
       humanizeKnob (p.getState(), ids::pitchHumanize, "Humanize", "Lets part of the natural pitch movement through."),
       transitionKnob (p.getState(), ids::pitchTransition, "Transition", "Lets fast slides between notes pass naturally (no fluttering staircase). 0 % = classic hard steps."),
@@ -85,7 +86,7 @@ VoxChainEditor::VoxChainEditor (VoxChainProcessor& p)
     addAndMakeVisible (pitchPower);
     pitchPowerAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         p.getState(), ids::pitchOn, pitchPower);
-    for (auto* c : { (juce::Component*) &keyChoice, (juce::Component*) &scaleChoice,
+    for (auto* c : { (juce::Component*) &keyChoice, (juce::Component*) &scaleChoice, (juce::Component*) &engineChoice,
                      (juce::Component*) &retuneKnob, (juce::Component*) &humanizeKnob,
                      (juce::Component*) &transitionKnob, (juce::Component*) &formantKnob, (juce::Component*) &pitchMixKnob,
                      (juce::Component*) &pitchDisplay })
@@ -188,9 +189,12 @@ void VoxChainEditor::resized()
         pitchDisplay.setBounds (p);
 
         auto choices = controls.removeFromTop (48);
-        keyChoice.setBounds (choices.removeFromLeft (choices.getWidth() / 2 - 5));
-        choices.removeFromLeft (10);
-        scaleChoice.setBounds (choices);
+        const int cw = (choices.getWidth() - 16) / 3;
+        keyChoice.setBounds (choices.removeFromLeft (cw - 14));
+        choices.removeFromLeft (8);
+        scaleChoice.setBounds (choices.removeFromLeft (cw + 14));
+        choices.removeFromLeft (8);
+        engineChoice.setBounds (choices);
         controls.removeFromTop (8);
 
         const int halfH = controls.getHeight() / 2;

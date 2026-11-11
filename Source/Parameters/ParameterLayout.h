@@ -25,6 +25,7 @@ namespace vox::ids
     inline constexpr const char* pitchFormant  = "pitch_formant";
     inline constexpr const char* pitchMix      = "pitch_mix";
     inline constexpr const char* pitchTransition = "pitch_transition";
+    inline constexpr const char* pitchEngine     = "pitch_engine";
 
     // High-pass
     inline constexpr const char* hpfOn    = "hpf_enabled";

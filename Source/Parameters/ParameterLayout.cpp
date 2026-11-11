@@ -77,6 +77,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     layout.add (makeFloat (ids::pitchFormant,  "Formant",      { -6.0f, 6.0f, 0.01f }, 0.0f,  "st", 2));
     layout.add (makeFloat (ids::pitchMix,      "Pitch Mix",    { 0.0f, 100.0f, 0.1f }, 100.0f, "%", 0));
     layout.add (makeFloat (ids::pitchTransition, "Transition", { 0.0f, 100.0f, 0.1f }, 80.0f,  "%", 0));
+    layout.add (std::make_unique<Choice> (pid (ids::pitchEngine), "Engine",
+                                          juce::StringArray { "Classic", "Smooth" }, 0));
 
     // ---- High-pass ---------------------------------------------------------
     layout.add (std::make_unique<Bool>   (pid (ids::hpfOn), "HPF On", true));

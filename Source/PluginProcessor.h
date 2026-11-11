@@ -47,7 +47,7 @@ public:
 
 private:
     void timerCallback() override;
-    void applyQualityIfChanged();
+    void applyModeIfChanged();
     static float peakDb (const juce::AudioBuffer<float>& b, int numSamples);
 
     juce::AudioProcessorValueTreeState state;
@@ -57,9 +57,11 @@ private:
     std::atomic<float>* pInputGain;
     std::atomic<float>* pOutputGain;
     std::atomic<float>* pQuality;
+    std::atomic<float>* pEngine;
 
     juce::SmoothedValue<float> inputGain, outputGain;
     int appliedQuality = -1;
+    int appliedEngine = -1;
     int preparedBlockSize = 0;
     double currentSampleRate = 44100.0;
 

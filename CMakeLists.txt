@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(VoxChain VERSION 0.2.1 LANGUAGES C CXX)
+project(VoxChain VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -43,7 +43,8 @@ juce_add_plugin(VoxChain
 set(VOXCHAIN_DSP_SOURCES
     Source/Modules/Pitch/PitchDetector.cpp
     Source/Modules/Pitch/ScaleQuantizer.cpp
-    Source/Modules/Pitch/PsolaShifter.cpp)
+    Source/Modules/Pitch/PsolaShifter.cpp
+    Source/Modules/Pitch/PitchCorrector.cpp)
 
 target_sources(VoxChain PRIVATE
     ${VOXCHAIN_DSP_SOURCES}
@@ -61,7 +62,14 @@ target_sources(VoxChain PRIVATE
     Source/UI/PitchDisplay.cpp
     Source/UI/ModuleStrip.cpp)
 
-target_include_directories(VoxChain PRIVATE Source)
+target_include_directories(VoxChain PRIVATE Source
+    ThirdParty/signalsmith-stretch/include
+    ThirdParty/signalsmith-linear/include)
+
+# Signalsmith Linear needs many template instantiations on MSVC
+if(MSVC)
+    target_compile_options(VoxChain PRIVATE /bigobj)
+endif()
 
 target_compile_definitions(VoxChain PUBLIC
     JUCE_WEB_BROWSER=0
@@ -85,7 +93,12 @@ target_link_libraries(VoxChain
 if(VOXCHAIN_BUILD_TESTS)
     juce_add_console_app(VoxChainTests PRODUCT_NAME "VoxChainTests")
     target_sources(VoxChainTests PRIVATE Tests/DspTests.cpp ${VOXCHAIN_DSP_SOURCES})
-    target_include_directories(VoxChainTests PRIVATE Source)
+    target_include_directories(VoxChainTests PRIVATE Source
+        ThirdParty/signalsmith-stretch/include
+        ThirdParty/signalsmith-linear/include)
+    if(MSVC)
+        target_compile_options(VoxChainTests PRIVATE /bigobj)
+    endif()
     target_compile_definitions(VoxChainTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
     target_link_libraries(VoxChainTests
         PRIVATE juce::juce_core juce::juce_audio_basics juce::juce_dsp

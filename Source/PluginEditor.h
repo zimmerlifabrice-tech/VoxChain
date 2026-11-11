@@ -43,7 +43,7 @@ private:
     // Pitch section
     juce::ToggleButton pitchPower { "ON" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> pitchPowerAttachment;
-    vox::Choice keyChoice, scaleChoice;
+    vox::Choice keyChoice, scaleChoice, engineChoice;
     vox::Knob retuneKnob, humanizeKnob, transitionKnob, formantKnob, pitchMixKnob;
     vox::PitchDisplay pitchDisplay;
 

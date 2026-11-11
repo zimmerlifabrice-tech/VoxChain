@@ -40,7 +40,8 @@ Bei Versionen mit Tag (z. B. `v0.1.0`) liegt die ZIP-Datei zusätzlich unter **R
 ## Die wichtigsten Einstellungen
 
 - **Key / Scale**: Tonart des Beats (z. B. A Minor). Wenn du sie nicht weisst: *Chromatic* korrigiert auf jeden Halbton.
-- **Retune**: 0 ms = harter Trap-Sound, 20–60 ms = natürlicher, 100+ ms = sehr dezent.
+- **Retune**: wie schnell die Stimme zum *nächsten* Ton gleitet. 0 ms = sofortiger Sprung (harter T-Pain-Sound), 20–40 ms = fliessend, 60+ ms = sehr weich. Gehaltene Töne bleiben bei jedem Wert voll getunt.
+- **Engine**: *Classic* = sehr präzise, stabil, wenig Latenz (Live 23 ms). *Smooth* = Phase Vocoder (wie kommerzielle Auto-Tuner), natürlicher bei rauer/kratziger Stimme, aber 60 ms Latenz und eine leichte Schwebung auf verschobenen Tönen. Zum Einsingen *Classic + Live* nehmen.
 - **Humanize**: lässt einen Teil der natürlichen Tonhöhenbewegung durch.
 - **Transition**: 80 % (Standard) = schnelle Gleiter zwischen Tönen klingen sauber, gehaltene Töne bleiben hart getunt. 0 % = klassischer T-Pain-Treppen-Effekt.
 - **Formant**: Stimme dunkler (–) oder heller (+), ohne die Tonhöhe zu ändern.

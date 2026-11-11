@@ -13,6 +13,7 @@ VoxChainProcessor::VoxChainProcessor()
     pInputGain  = state.getRawParameterValue (vox::ids::inputGain);
     pOutputGain = state.getRawParameterValue (vox::ids::outputGain);
     pQuality    = state.getRawParameterValue (vox::ids::quality);
+    pEngine     = state.getRawParameterValue (vox::ids::pitchEngine);
 
     // Phase 1: fixed order. Phase 4 (Chain Builder) will make this user-editable.
     for (auto& type : juce::StringArray { "pitch", "hpf", "eq", "comp", "deess" })
@@ -25,7 +26,7 @@ VoxChainProcessor::VoxChainProcessor()
     }
 
     // Report a sensible latency even before prepareToPlay (some hosts query early).
-    setLatencySamples (vox::PitchModule::computeLatency (44100.0, vox::PitchModule::Quality::Live));
+    setLatencySamples (vox::PitchModule::computeLatency (44100.0, vox::PitchModule::Quality::Live, vox::PitchModule::Engine::Classic));
 
     startTimerHz (10);
 }
@@ -49,7 +50,8 @@ void VoxChainProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     preparedBlockSize = juce::jmax (32, samplesPerBlock);
 
     appliedQuality = (int) pQuality->load();
-    pitchModule->setQuality ((vox::PitchModule::Quality) appliedQuality);
+    appliedEngine = (int) pEngine->load();
+    pitchModule->setMode ((vox::PitchModule::Quality) appliedQuality, (vox::PitchModule::Engine) appliedEngine);
 
     chain.prepare (sampleRate, preparedBlockSize, getTotalNumOutputChannels());
     setLatencySamples (chain.getTotalLatencySamples());
@@ -116,19 +118,21 @@ void VoxChainProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 
 void VoxChainProcessor::timerCallback()
 {
-    applyQualityIfChanged();
+    applyModeIfChanged();
 }
 
-void VoxChainProcessor::applyQualityIfChanged()
+void VoxChainProcessor::applyModeIfChanged()
 {
     const int q = (int) pQuality->load();
-    if (q == appliedQuality || preparedBlockSize == 0)
+    const int e = (int) pEngine->load();
+    if ((q == appliedQuality && e == appliedEngine) || preparedBlockSize == 0)
         return;
 
-    // Switching quality changes the latency: pause audio, rebuild, tell FL Studio.
+    // Switching quality/engine changes the latency: pause audio, rebuild, tell FL Studio.
     suspendProcessing (true);
     appliedQuality = q;
-    pitchModule->setQuality ((vox::PitchModule::Quality) q);
+    appliedEngine = e;
+    pitchModule->setMode ((vox::PitchModule::Quality) q, (vox::PitchModule::Engine) e);
     chain.reset();
     setLatencySamples (chain.getTotalLatencySamples());
     suspendProcessing (false);

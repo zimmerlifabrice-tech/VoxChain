@@ -1,24 +1,23 @@
 #pragma once
 
 #include "Engine/ModuleBase.h"
-#include "PitchDetector.h"
-#include "ScaleQuantizer.h"
-#include "PsolaShifter.h"
-#include "VoicingTracker.h"
-#include "TransitionDetector.h"
+#include "PitchCorrector.h"
 
 namespace vox
 {
 /**
-    Pitch correction module: detector -> scale quantizer -> retune smoothing
-    -> PSOLA shifter. Works on the mono sum of the input; the result is
-    written to all channels. The dry path is delayed by the same latency,
-    so bypass and mix never cause phasing or timing jumps.
+    Pitch correction module: wraps PitchCorrector (detector -> scale ->
+    retune/humanize/transition -> phase-vocoder shifter) for the plugin.
+
+    Works on the mono sum of the input; the result is written to all
+    channels. The dry path is delayed by the same latency, so bypass and
+    mix never cause phasing or timing jumps.
 */
 class PitchModule : public ModuleBase
 {
 public:
-    enum class Quality { Live = 0, HighQuality = 1 };
+    using Quality = PitchCorrector::Quality;
+    using Engine = PitchCorrector::Engine;
 
     explicit PitchModule (juce::AudioProcessorValueTreeState& state);
 
@@ -30,27 +29,22 @@ public:
     void reset() override;
     void process (juce::AudioBuffer<float>& buffer, int numSamples) override;
 
-    int getLatencySamples() const override { return latency; }
+    int getLatencySamples() const override { return corrector.getLatencySamples(); }
     bool handlesOwnBypass() const override { return true; }
 
     /** Call only while processing is suspended (re-allocates). */
-    void setQuality (Quality q);
+    void setMode (Quality q, Engine e);
     Quality getQuality() const noexcept { return quality; }
+    Engine getEngine() const noexcept { return engine; }
 
-    /** Static helper so the processor can compute latency before prepare. */
-    static int computeLatency (double sampleRate, Quality q);
+    static int computeLatency (double sampleRate, Quality q, Engine e) { return PitchCorrector::computeLatency (sampleRate, q, e); }
 
     // ---- values for the UI (read on the message thread) ----
-    float getDetectedMidi() const noexcept  { return uiDetectedMidi.load (std::memory_order_relaxed); }
-    float getCorrectedMidi() const noexcept { return uiCorrectedMidi.load (std::memory_order_relaxed); }
-    float getTargetMidi() const noexcept    { return uiTargetMidi.load (std::memory_order_relaxed); }
+    float getDetectedMidi() const noexcept  { return corrector.detectedMidi.load (std::memory_order_relaxed); }
+    float getCorrectedMidi() const noexcept { return corrector.correctedMidi.load (std::memory_order_relaxed); }
+    float getTargetMidi() const noexcept    { return corrector.targetMidi.load (std::memory_order_relaxed); }
 
 private:
-    struct Config { float minF0, maxF0; int window, hop, maxPeriod, latency; };
-    static Config makeConfig (double sampleRate, Quality q);
-
-    void analyseHop();
-
     std::atomic<float>* pOn;
     std::atomic<float>* pKey;
     std::atomic<float>* pScale;
@@ -60,37 +54,17 @@ private:
     std::atomic<float>* pMix;
     std::atomic<float>* pTransition;
 
-    PitchDetector detector;
-    ScaleQuantizer quantizer;
-    PsolaShifter shifter;
-    VoicingTracker voicing;
-    TransitionDetector transition;
-
+    PitchCorrector corrector;
     Quality quality = Quality::Live;
+    Engine engine = Engine::Classic;
     double sampleRate = 44100.0;
     int numChannels = 2;
-    int latency = 0;
-    Config cfg {};
+    int maxBlock = 512;
 
-    // Detection input (circular) + linear frame for the detector
-    std::vector<float> detectRing, frame;
-    int detectWrite = 0;
-    int hopCounter = 0;
-    int64_t sampleCounter = 0;
-
-    // Per-channel dry delay lines (so bypass keeps stereo + timing)
-    juce::AudioBuffer<float> dryDelay;
+    std::vector<float> mono, wet;
+    juce::AudioBuffer<float> dryDelay;   // per-channel dry, delayed by the latency
     int dryWrite = 0;
-
-    // Correction state
-    float shiftSemis = 0.0f;
-    float medianHist[3] { 0, 0, 0 };
-    int medianCount = 0;
-    int unvoicedHops = 0;
-
     juce::SmoothedValue<float> wetAmount;
-
-    std::atomic<float> uiDetectedMidi { -1.0f }, uiCorrectedMidi { -1.0f }, uiTargetMidi { -1.0f };
 };
 
 } // namespace vox
